@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Copy of InnerSpace Solo 4",
+  "description": "Um santuário digital para a solidão, transformando a solidão em introspecção através de arte generativa, paisagens sonoras adaptativas e diálogo socrático.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ]
+}
