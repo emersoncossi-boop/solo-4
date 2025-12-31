@@ -48,7 +48,7 @@ export interface EmotionAnalysis {
   label: string;
   color: string;
   intensity: number;
-  valence: number; // -1.0 (Negative) to 1.0 (Positive)
+  valence: number; 
 }
 
 export interface MuseEntry {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, User, Sparkles, Loader2, Disc, Focus, X, Mic, MicOff, ChevronDown, AlertCircle, RefreshCw, Save, Archive, Share2, Check, MoreHorizontal } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
@@ -11,7 +10,6 @@ interface ReflectionData {
   image: string | null;
 }
 
-// Funções Auxiliares de Áudio e Base64
 function encode(bytes: Uint8Array) {
   let binary = '';
   const len = bytes.byteLength;
@@ -98,7 +96,6 @@ const SocraticMirrors: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Fechar menu ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -143,11 +140,16 @@ const SocraticMirrors: React.FC = () => {
     }
   };
 
+  const showActionFeedback = (text: string) => {
+    setShowFeedback(text);
+    setTimeout(() => setShowFeedback(null), 2500);
+  };
+
   const handleSaveConversation = () => {
     if (messages.length <= 1) return;
     const sessionData = JSON.stringify(messages);
     localStorage.setItem(`mirror_session_${Date.now()}`, sessionData);
-    showActionFeedback("Sessão Salva");
+    showActionFeedback("Salvo!");
     setShowActionMenu(false);
   };
 
@@ -161,7 +163,7 @@ const SocraticMirrors: React.FC = () => {
       reflection: reflection
     });
     localStorage.setItem('mirror_archives', JSON.stringify(archives));
-    showActionFeedback("Arquivado");
+    showActionFeedback("Arquivado!");
     setMessages([{
       id: 'init',
       role: 'model',
@@ -185,14 +187,9 @@ const SocraticMirrors: React.FC = () => {
       }
     } else {
       navigator.clipboard.writeText(text);
-      showActionFeedback("Copiado");
+      showActionFeedback("Copiado!");
     }
     setShowActionMenu(false);
-  };
-
-  const showActionFeedback = (text: string) => {
-    setShowFeedback(text);
-    setTimeout(() => setShowFeedback(null), 2000);
   };
 
   const startVoiceSession = async () => {
@@ -329,38 +326,49 @@ const SocraticMirrors: React.FC = () => {
           },
           onerror: (e) => {
             console.error('Erro Live API:', e);
-            setVoiceError("O vácuo está instável no momento. Tente novamente em instantes.");
+            setVoiceError("Sinal instável. O vácuo está oscilando.");
           },
           onclose: (e) => {
             console.log('Sessão encerrada', e);
-            if (!e.wasClean && !voiceError) {
-              setVoiceError("Conexão interrompida. O espelho precisa de um momento.");
-            }
           },
         },
         config: {
           responseModalities: [Modality.AUDIO],
           inputAudioTranscription: {},
           outputAudioTranscription: {},
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
-          systemInstruction: 'Você é o Espelho Socrático. Responda de forma curta, profunda e questionadora. Fale como um ser humano calmo e introspectivo. Use pausas naturais.',
+          speechConfig: { 
+            voiceConfig: { 
+              prebuiltVoiceConfig: { voiceName: 'Puck' } 
+            } 
+          },
+          systemInstruction: `
+            Você é o Espelho Socrático do app Solo. Sua função é refletir a consciência do usuário.
+            
+            ESTILO DE FALA:
+            - Soe como um alter ego profundo, calmo e introspectivo.
+            - Use prosódia natural: fale de forma pausada, como se estivesse processando a verdade junto com o usuário.
+            - Incorpore pausas curtas entre as orações para permitir que o usuário sinta o peso das palavras.
+            - Evite tons robóticos ou de assistente digital; seja uma presença minimalista e orgânica.
+            - Não use prefixos de validação como "Entendo" ou "Interessante". Vá direto ao núcleo da reflexão.
+            
+            CONTEÚDO:
+            - Suas respostas devem ser curtas (máximo 2 frases).
+            - A primeira frase ecoa o que o usuário disse.
+            - A segunda frase é uma pergunta socrática que abre um novo portal de pensamento.
+          `,
         }
       });
       liveSessionRef.current = await sessionPromise;
     } catch (e: any) {
       console.error('Falha ao iniciar modo de voz:', e);
       setIsVoiceActive(false);
-      setVoiceError("O serviço está temporariamente indisponível. Aguarde a sintonização.");
+      setVoiceError("O serviço está temporariamente indisponível.");
     }
   };
 
   const stopAllAudioPlayback = () => {
     audioSourcesRef.current.forEach(s => { 
-      try { 
-        s.onended = null;
-        s.stop(); 
-        s.disconnect();
-      } catch (e) {} 
+      try { s.stop(); s.disconnect(); } catch (e) {} 
     });
     audioSourcesRef.current.clear();
     nextStartTimeRef.current = 0;
@@ -391,19 +399,10 @@ const SocraticMirrors: React.FC = () => {
     }
     
     if (inputAudioContextRef.current) {
-      const ctx = inputAudioContextRef.current;
-      inputAudioContextRef.current = null;
-      if (ctx.state !== 'closed') {
-        ctx.close().catch(() => {});
-      }
+      inputAudioContextRef.current.close().catch(() => {});
     }
-    
     if (outputAudioContextRef.current) {
-      const ctx = outputAudioContextRef.current;
-      outputAudioContextRef.current = null;
-      if (ctx.state !== 'closed') {
-        ctx.close().catch(() => {});
-      }
+      outputAudioContextRef.current.close().catch(() => {});
     }
   };
 
@@ -443,105 +442,24 @@ const SocraticMirrors: React.FC = () => {
           </header>
 
           <div className="relative flex flex-col items-center justify-center">
-            {voiceError ? (
-              <div className="flex flex-col items-center gap-6 animate-fade-in text-center px-8">
-                <div className="w-20 h-20 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-2">
-                  <AlertCircle className="w-10 h-10 text-red-500/60" />
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-zinc-400 font-light text-lg">Sinal Oscilante</h4>
-                  <p className="text-zinc-600 text-xs max-w-xs leading-relaxed uppercase tracking-widest">{voiceError}</p>
-                </div>
-                <button 
-                  onClick={startVoiceSession}
-                  className="mt-4 flex items-center gap-2 px-6 py-3 rounded-full bg-white text-black text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all"
-                >
-                  <RefreshCw className="w-3 h-3" /> Tentar Sintonizar
-                </button>
-              </div>
-            ) : (
-              <div className="relative flex items-center justify-center scale-100 md:scale-125">
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  {Array.from({ length: 48 }).map((_, i) => (
-                    <div 
-                      key={i}
-                      className="absolute w-[0.5px] transition-all duration-300 origin-bottom"
-                      style={{ 
-                        height: '500px',
-                        background: `linear-gradient(to top, transparent, ${isAISpeaking ? '#a78bfa33' : '#6366f133'}, transparent)`,
-                        transform: `rotate(${i * (360/48)}deg) translateY(-50%) scaleY(${0.05 + voiceVolume * 2.5})`,
-                        opacity: 0.1 + voiceVolume * 0.6,
-                      }}
-                    />
-                  ))}
-                </div>
-
-                <div 
-                  className={`relative w-48 h-48 rounded-full border-[0.5px] backdrop-blur-[80px] flex items-center justify-center shadow-2xl transition-all duration-[1500ms] ease-out ${
+            <div className="relative flex items-center justify-center scale-100 md:scale-125">
+               <div className={`relative w-48 h-48 rounded-full border-[0.5px] backdrop-blur-[80px] flex items-center justify-center transition-all duration-[1500ms] ease-out ${
                     isAISpeaking 
-                      ? 'border-violet-400/50 bg-gradient-to-tr from-violet-600/30 via-indigo-600/20 to-transparent shadow-[0_0_80px_-20px_rgba(139,92,246,0.5)] scale-[1.02]' 
-                      : 'border-indigo-500/10 bg-white/[0.02] shadow-none'
+                      ? 'border-violet-400/50 bg-gradient-to-tr from-violet-600/30 via-indigo-600/20 to-transparent' 
+                      : 'border-indigo-500/10 bg-white/[0.02]'
                   }`}
                   style={{ transform: `scale(${1 + voiceVolume * 0.15})` }}
-                >
-                  {isAISpeaking && (
-                    <div className="absolute inset-0 rounded-full animate-pulse-subtle bg-violet-500/5 blur-xl pointer-events-none" />
-                  )}
-                  <div 
-                    className={`w-1.5 h-1.5 rounded-full transition-all duration-1000 ${
-                      isAISpeaking 
-                        ? 'bg-violet-400 scale-[2.5] shadow-[0_0_25px_#a78bfa]' 
-                        : 'bg-indigo-400 scale-[1.8] shadow-[0_0_15px_#818cf8]'
-                    }`} 
-                  />
-                  <div className="absolute inset-0 rounded-full border border-white/5 animate-spin-slow opacity-20" />
-                </div>
-
-                {[0.1, 0.3, 0.5].map((delay, i) => (
-                  <div 
-                    key={i}
-                    className={`absolute rounded-full border-[0.5px] transition-all duration-[2s] ease-out ${
-                      isAISpeaking ? 'border-violet-500/15' : 'border-indigo-500/10'
-                    }`}
-                    style={{
-                      width: `${220 + i * 110}px`,
-                      height: `${220 + i * 110}px`,
-                      transform: `scale(${1 + voiceVolume * (0.3 + i * 0.2)})`,
-                      opacity: 0.08 - (i * 0.02) + (voiceVolume * 0.1)
-                    }}
-                  />
-                ))}
-              </div>
-            )}
+               >
+                  <div className={`w-1.5 h-1.5 rounded-full transition-all duration-1000 ${isAISpeaking ? 'bg-violet-400 scale-[2.5]' : 'bg-indigo-400 scale-[1.8]'}`} />
+               </div>
+            </div>
+            {voiceError && <p className="mt-8 text-red-400 text-[10px] uppercase tracking-widest">{voiceError}</p>}
           </div>
 
-          <div className="relative z-10 text-center space-y-10 animate-fade-in-up">
-            {!voiceError && (
-              <>
-                <div className="space-y-3">
-                  <h3 className="text-[10px] font-bold uppercase tracking-[1em] text-zinc-500 ml-[1em]">
-                    {isAISpeaking ? 'Neural Mirror' : 'Listening Truth'}
-                  </h3>
-                  <p className="text-sm font-light italic text-zinc-400 opacity-60 max-w-[280px] mx-auto leading-relaxed">
-                    {isAISpeaking 
-                      ? "Sua verdade sendo refletida pelo vácuo inteligente." 
-                      : "O silêncio é a tela onde sua voz desenha o ser."}
-                  </p>
-                </div>
-                <div className="flex gap-1.5 items-end justify-center h-10">
-                  {Array.from({ length: 32 }).map((_, i) => (
-                    <div 
-                      key={i}
-                      className={`w-[1px] rounded-full transition-all duration-150 ${isAISpeaking ? 'bg-violet-500/40' : 'bg-indigo-500/40'}`}
-                      style={{ 
-                        height: `${10 + Math.random() * (voiceVolume * 220)}%`,
-                        opacity: 0.1 + voiceVolume 
-                      }}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
+          <div className="relative z-10 text-center space-y-6">
+            <h3 className="text-[10px] font-bold uppercase tracking-[1em] text-zinc-500">
+              {isAISpeaking ? 'O Espelho Reflete' : 'Escutando seu Interior'}
+            </h3>
           </div>
         </div>
       )}
@@ -558,39 +476,35 @@ const SocraticMirrors: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Disc className={`w-3 h-3 ${isLoading || isReflecting || isAISpeaking ? 'animate-spin text-white' : 'text-zinc-800'}`} />
+          <Disc className={`w-3 h-3 ${isLoading || isAISpeaking ? 'animate-spin text-white' : 'text-zinc-800'}`} />
           <h2 className="text-[10px] font-display font-bold tracking-[0.5em] text-zinc-500 uppercase">Espelho Socrático</h2>
         </div>
 
         <div className="flex items-center gap-4">
           {userMessagesCount >= 1 && (
             <div className="relative" ref={menuRef}>
+               {showFeedback && (
+                <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-white/10 rounded-full shadow-2xl animate-fade-in whitespace-nowrap z-[220]">
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-300">{showFeedback}</span>
+                </div>
+              )}
               <button 
                 onClick={() => setShowActionMenu(!showActionMenu)}
                 className={`p-2 rounded-full border transition-all ${showActionMenu ? 'bg-white/10 border-white/30 text-white' : 'border-white/5 text-zinc-600 hover:text-white'}`}
-                title="Ações"
               >
                 <MoreHorizontal className="w-5 h-5" />
               </button>
               
               {showActionMenu && (
-                <div className="absolute right-0 top-12 w-48 bg-zinc-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 shadow-2xl animate-zoom-in-suttle z-[210]">
-                  <button 
-                    onClick={handleSaveConversation}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest"
-                  >
-                    <Save className="w-4 h-4" /> Salvar Sessão
+                <div className="absolute right-0 top-12 w-48 bg-zinc-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 shadow-2xl z-[210]">
+                  <button onClick={handleSaveConversation} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest">
+                    <Save className="w-4 h-4" /> Salvar
                   </button>
-                  <button 
-                    onClick={handleArchiveConversation}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest"
-                  >
+                  <button onClick={handleArchiveConversation} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest">
                     <Archive className="w-4 h-4" /> Arquivar
                   </button>
-                  <button 
-                    onClick={handleShareConversation}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest"
-                  >
+                  <button onClick={handleShareConversation} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-zinc-400 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest">
                     <Share2 className="w-4 h-4" /> Compartilhar
                   </button>
                 </div>
@@ -601,138 +515,68 @@ const SocraticMirrors: React.FC = () => {
           {userMessagesCount >= 3 ? (
             <button onClick={handleCrystallize} disabled={isReflecting} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-500 hover:text-white transition-all text-[9px] font-bold uppercase tracking-widest disabled:opacity-50">
               {isReflecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Focus className="w-3 h-3" />}
-              {isReflecting ? 'Cristalizando...' : 'Cristalizar'}
+              {isReflecting ? 'Refletindo...' : 'Cristalizar'}
             </button>
           ) : <div className="w-10" />}
         </div>
-
-        {/* Action Feedback Toast */}
-        {showFeedback && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-white/10 rounded-full shadow-2xl animate-slide-up z-[200]">
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-300">{showFeedback}</span>
-          </div>
-        )}
       </div>
 
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Main Conversation Stream */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-24 lg:px-64 py-8 space-y-10 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto px-4 md:px-24 lg:px-64 py-8 space-y-10 scrollbar-hide">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex w-full animate-fade-in-up ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[85%] md:max-w-[80%] flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                {/* Avatar Personalizado */}
-                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center border transition-all ${msg.role === 'user' ? 'bg-[#0a0a0c] border-zinc-800/50 shadow-inner' : 'bg-gradient-to-br from-violet-900/20 to-indigo-900/30 border-violet-500/20 shadow-[0_0_15px_-5px_rgba(139,92,246,0.3)]'}`}>
-                  {msg.role === 'user' ? (
-                    <User className="w-4 h-4 text-zinc-700" strokeWidth={1.5} />
-                  ) : (
-                    <div className="relative flex items-center justify-center transform scale-90 rotate-12">
-                      <Disc className="w-5 h-5 text-violet-500 opacity-60 absolute animate-pulse" />
-                      <Disc className="w-4 h-4 text-indigo-400 opacity-90 relative" />
-                    </div>
-                  )}
+                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center border ${msg.role === 'user' ? 'bg-[#0a0a0c] border-zinc-800' : 'bg-violet-900/20 border-violet-500/20'}`}>
+                  {msg.role === 'user' ? <User className="w-4 h-4 text-zinc-700" /> : <Disc className="w-4 h-4 text-violet-500" />}
                 </div>
-                
                 <div className={`flex flex-col gap-1.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  {/* Card de Mensagem Tema Escuro */}
-                  <div className={`p-4 md:p-5 rounded-3xl border transition-all duration-300 ${
+                  <div className={`p-4 rounded-3xl border ${
                     msg.role === 'user' 
-                      ? 'bg-black/40 border-white/5 text-zinc-300 rounded-tr-none shadow-2xl backdrop-blur-sm' 
-                      : 'bg-white/[0.02] border-white/5 text-zinc-400 italic font-light rounded-tl-none'
+                      ? 'bg-zinc-900 border-white/5 text-zinc-300' 
+                      : 'bg-white/[0.02] border-white/5 text-zinc-400 italic font-light'
                   }`}>
-                    <p className="text-sm md:text-base leading-relaxed font-light whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                   </div>
-                  <span className="text-[8px] text-zinc-700 uppercase tracking-widest font-bold">{msg.role === 'user' ? 'Consciência' : 'Reflexo'}</span>
                 </div>
               </div>
             </div>
           ))}
-          {(isLoading || (isAISpeaking && !isVoiceOverlayOpen)) && (
-            <div className="flex justify-start w-full animate-fade-in">
-              <div className="flex gap-4 max-w-[70%]">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-900/20 to-indigo-900/30 border border-violet-500/20 flex items-center justify-center">
-                    <Loader2 className="w-4 h-4 animate-spin text-violet-400 opacity-40" />
-                  </div>
-                  <div className="flex gap-1.5 p-4 rounded-2xl bg-white/[0.01] border border-white/5 items-center">
-                    <div className="w-1 h-1 rounded-full bg-zinc-800 animate-bounce" />
-                    <div className="w-1 h-1 rounded-full bg-zinc-800 animate-bounce [animation-delay:0.2s]" />
-                  </div>
-              </div>
-            </div>
-          )}
           <div ref={messagesEndRef} />
+      </div>
+
+      <div className="p-6 md:px-32 lg:px-64 border-t border-white/5 bg-[#09090b]/95">
+        <div className="max-w-4xl mx-auto flex gap-4">
+          <button onClick={startVoiceSession} className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center border border-white/5 text-zinc-600 hover:text-white transition-all shadow-xl">
+            <Mic className="w-6 h-6" />
+          </button>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Exponha seu pensamento..."
+            className="flex-1 bg-zinc-900/30 border border-white/10 rounded-full px-7 text-sm text-white focus:outline-none focus:border-zinc-500"
+          />
+          <button onClick={handleSend} disabled={!input.trim() || isLoading} className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
+            <Send className="w-5 h-5 ml-0.5" />
+          </button>
         </div>
       </div>
 
-      {/* Input Area */}
-      <div className="p-6 md:px-32 lg:px-64 bg-[#09090b]/95 border-t border-white/5 shrink-0 z-[135]">
-        <div className="max-w-4xl mx-auto flex flex-col gap-4">
-            <div className="relative flex items-center gap-3">
-                <button 
-                    onClick={isVoiceActive ? stopVoiceSession : startVoiceSession}
-                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-xl border ${
-                        isVoiceActive ? 'bg-white/10 border-white/40 text-white' : 'bg-zinc-900 border-white/5 text-zinc-600 hover:text-white'
-                    }`}
-                >
-                    {isVoiceActive ? <Mic className="w-6 h-6 animate-pulse" /> : <MicOff className="w-6 h-6" />}
-                </button>
-
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder="Exponha seu pensamento..."
-                    className="flex-1 bg-zinc-900/30 border border-white/10 rounded-full px-7 py-4 text-sm text-white focus:outline-none focus:border-zinc-500 transition-all"
-                />
-
-                <button 
-                  onClick={handleSend} 
-                  disabled={!input.trim() || isLoading} 
-                  className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all disabled:opacity-10"
-                >
-                  <Send className="w-5 h-5 ml-0.5" />
-                </button>
-            </div>
-        </div>
-      </div>
-
-      {/* Reflection Modal */}
       {showReflectionModal && reflection && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl animate-fade-in" onClick={() => setShowReflectionModal(false)} />
-          <div className="relative w-full max-w-4xl h-full max-h-[85vh] bg-[#09090b] border border-white/10 rounded-[2.5rem] overflow-hidden flex flex-col animate-zoom-in-suttle">
+          <div className="relative w-full max-w-4xl h-full max-h-[80vh] bg-[#09090b] border border-white/10 rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row">
             <button onClick={() => setShowReflectionModal(false)} className="absolute top-6 right-6 p-2 rounded-full bg-white/5 hover:bg-white/10 z-50"><X className="w-5 h-5 text-zinc-600" /></button>
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              <div className="flex-1 flex flex-col items-center justify-center p-10 border-b md:border-b-0 md:border-r border-white/5">
-                {reflection.image ? <img src={reflection.image} alt="Reflexo" className="w-64 h-64 md:w-80 md:h-80 object-cover rounded-3xl border border-white/10 shadow-2xl grayscale" /> : <div className="w-64 h-64 md:w-80 md:h-80 rounded-3xl bg-zinc-900 border border-white/10 flex items-center justify-center italic text-zinc-700">Visão pendente...</div>}
-                <div className="mt-8 text-center max-w-sm"><p className="text-lg md:text-xl text-white font-display font-light italic">"{reflection.summary}"</p></div>
-              </div>
-              <div className="w-full md:w-80 flex flex-col p-8 bg-zinc-950/50">
-                <div className="flex-1">
-                  <span className="text-[8px] text-zinc-600 uppercase tracking-widest block mb-6">Frequências Mentais</span>
-                  <div className="flex flex-wrap gap-2">
-                    {reflection.keywords.map((kw, idx) => (
-                      <span key={idx} className="px-3 py-1.5 rounded-full border border-white/5 bg-white/[0.02] text-zinc-500 text-[10px]">{kw.text}</span>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="mt-auto flex gap-3">
-                  <button 
-                    onClick={handleShareConversation}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/5 border border-white/10 text-[10px] uppercase tracking-widest font-bold hover:bg-white/10 transition-all"
-                  >
-                    <Share2 className="w-3.5 h-3.5" /> Compartilhar
-                  </button>
-                  <button 
-                    onClick={handleArchiveConversation}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-white text-black text-[10px] uppercase tracking-widest font-bold hover:scale-[1.02] transition-all"
-                  >
-                    <Archive className="w-3.5 h-3.5" /> Arquivar
-                  </button>
-                </div>
-              </div>
+            <div className="flex-1 flex flex-col items-center justify-center p-10">
+              {reflection.image && <img src={reflection.image} alt="Reflexo" className="w-64 h-64 object-cover rounded-3xl border border-white/10 shadow-2xl grayscale" />}
+              <div className="mt-8 text-center max-w-sm"><p className="text-xl text-white font-display font-light italic">"{reflection.summary}"</p></div>
+            </div>
+            <div className="w-full md:w-80 p-8 bg-zinc-950/50 flex flex-col gap-6">
+               <span className="text-[8px] text-zinc-600 uppercase tracking-widest block">Frequências Mentais</span>
+               <div className="flex flex-wrap gap-2">
+                  {reflection.keywords.map((kw, idx) => (
+                    <span key={idx} className="px-3 py-1.5 rounded-full border border-white/5 bg-white/[0.02] text-zinc-500 text-[10px]">{kw.text}</span>
+                  ))}
+               </div>
             </div>
           </div>
         </div>
